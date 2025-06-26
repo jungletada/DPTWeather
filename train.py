@@ -63,7 +63,7 @@ def get_args():
     )
     parser.add_argument(
         "--batch_size",
-        default=4,
+        default=8,
         type=int,
         help="batch size for training"
     )
@@ -215,7 +215,9 @@ if __name__ == '__main__':
         level=logging.INFO,
         format='%(asctime)s [%(levelname)s] %(message)s',
         handlers=[
-            logging.FileHandler(f'{log_time}.log', encoding='utf-8'),
+            logging.FileHandler(
+                os.path.join(args.output_dir,f'{log_time}.log'), 
+                encoding='utf-8'),
             logging.StreamHandler(),
         ]
     )
