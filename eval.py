@@ -206,6 +206,20 @@ if "__main__" == __name__:
         sample_metric = []
         depth_pred_ts = torch.from_numpy(depth_pred).to(device)
         
+       
+        # valid_mask_1 = valid_mask.squeeze()
+        # depth_raw_1 = depth_raw.squeeze()
+        # # Create aligned_depth subdirectory and save aligned depth maps there
+        # aligned_depth_dir = os.path.join(args.output_dir, "align_depth_rgb")
+        # aligned_pred_path = os.path.join(aligned_depth_dir, pred_name)
+        # # Ensure the full directory structure exists
+        # os.makedirs(os.path.dirname(aligned_pred_path), exist_ok=True)
+        # aligned_depth = valid_mask_1 * depth_raw_1 + (1 - valid_mask_1) * depth_pred
+        # aligned_depth_png_path = aligned_pred_path.replace('.npy', '.png').replace('pred_', '')
+        # os.makedirs(os.path.dirname(aligned_depth_png_path), exist_ok=True)
+        # Image.fromarray((aligned_depth * 256.0).astype(np.uint16)).save(aligned_depth_png_path)
+        
+        # # Save predicted and ground truth depth as heatmaps
         # pred_heatmap_path = os.path.join(args.output_dir, pred_name.replace('.npy', '_pred.png'))
         # gt_heatmap_path = os.path.join(args.output_dir, pred_name.replace('.npy', '_gt.png'))
         # save_heatmap(depth_pred, pred_heatmap_path)

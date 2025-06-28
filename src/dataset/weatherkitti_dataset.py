@@ -110,6 +110,7 @@ class WeatherKITTIDepthDataset(BaseDepthDataset):
     def _load_depth_data(self, depth_rel_path, filled_rel_path):
         # Read depth data
         depth_data = {}
+        SL = len('0000000069.png')
         depth_raw = self._read_depth_file(depth_rel_path).squeeze()
         depth_raw_linear = torch.from_numpy(depth_raw.copy()).float()
         if not self.squeeze_channel:
@@ -118,7 +119,7 @@ class WeatherKITTIDepthDataset(BaseDepthDataset):
         depth_data["depth_raw_linear"] = depth_raw_linear.clone()
         
         if self.has_filled_depth:
-            depth_filled = self._read_depth_file(filled_rel_path).squeeze()
+            depth_filled = self._read_depth_file(filled_rel_path[:-SL] + 'pred_' + filled_rel_path[-SL:]).squeeze()
             depth_filled_linear = torch.from_numpy(depth_filled.copy()).float()
             if not self.squeeze_channel:
                 depth_filled_linear = depth_filled_linear.unsqueeze(0)
