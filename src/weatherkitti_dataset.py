@@ -44,7 +44,9 @@ class WeatherKITTIDepthDataset(BaseDepthDataset):
         self.KB_CROP_WIDTH = 1216
         self.train_crop = train_crop
         self.squeeze_channel = squeeze_channel
-        assert self.train_crop is not None and self.mode == 'train'
+        if self.train_crop is not None and self.mode != 'train':
+            print("Error! You can not set train_crop while not training.")
+            exit(0)
 
         self.kitti_bm_crop = kitti_bm_crop
         self.valid_mask_crop = valid_mask_crop

@@ -50,10 +50,10 @@ def get_args():
         help="crop size for training"
     )
     parser.add_argument(
-        "--epochs",
-        default=60,
+        "--iterations",
+        default=160000,
         type=int,
-        help="epochs for training"
+        help="iterations for training"
     )
     parser.add_argument(
         "--lr",
@@ -63,7 +63,7 @@ def get_args():
     )
     parser.add_argument(
         "--batch_size",
-        default=8,
+        default=16,
         type=int,
         help="batch size for training"
     )
@@ -78,6 +78,12 @@ def get_args():
         default='output',
         type=str,
         help="saving directory"
+    )
+    parser.add_argument(
+        "--pretrained",
+        default='weights/dpt_hybrid-midas-501f0c75.pt',
+        type=str,
+        help="pretrained weights directory"
     )
 
     parser.add_argument("--kitti_crop", dest="kitti_crop", action="store_true")
@@ -95,13 +101,10 @@ def get_args():
 
 def build_model(args):
     model_type = args.model_type
-    # select device
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Device: {device}")
     # load network
     if model_type == "dpt_large":  # DPT-Large
         model = DPTDepthModel(
-            path=None,
+            path=args.pretrained,
             backbone="vitl16_384",
             non_negative=True,
             enable_attention_hooks=False,
@@ -109,7 +112,7 @@ def build_model(args):
        
     elif model_type == "dpt_hybrid":  # DPT-Hybrid
         model = DPTDepthModel(
-            path=None,
+            path=args.pretrained,
             backbone="vitb_rn50_384",
             non_negative=True,
             enable_attention_hooks=False,
@@ -125,6 +128,7 @@ def train_model(args):
     model = build_model(args)
     model.train()
 
+    # Set up device: automatically choose CUDA or CPU based on availability
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(memory_format=torch.channels_last).to(device)
 
@@ -145,55 +149,60 @@ def train_model(args):
     
     optimizer = optim.AdamW(model.parameters(), lr=args.lr)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-        optimizer, T_max=args.epochs, eta_min=1e-6)
+        optimizer, T_max=args.iterations, eta_min=1e-6)
 
     criterion = ScaleAndShiftInvariantLoss()
 
     # Resume logic
-    start_epoch = 0
+    start_iter = 0
     os.makedirs(args.output_dir, exist_ok=True)
     checkpoint_path = os.path.join(args.output_dir, "latest_checkpoint.pth")
 
     if os.path.exists(checkpoint_path):
         logging.info(f"Loading checkpoint from {checkpoint_path}")
-        checkpoint = torch.load(checkpoint_path, map_location=device)
+        checkpoint = torch.load(checkpoint_path, map_location='cpu')
         model.load_state_dict(checkpoint['model_state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-        start_epoch = checkpoint['epoch'] + 1
-        logging.info(f"Resuming from epoch {start_epoch}")
+        start_iter = checkpoint['iter'] + 1
+        logging.info(f"Resuming from iteration {start_iter}")
 
-    for _ in range(start_epoch):
+    for _ in range(start_iter):
         scheduler.step()
 
-    for epoch in range(start_epoch, args.epochs):
+    current_iter = start_iter
+
+    # Training loop
+    for epoch in range(0, 10000):
         model.train()
         running_loss = 0.0
         
         for i, batch in enumerate(dataloader):
-            inputs = batch['rgb_norm'].to(device)
-            targets = batch['depth_filled_linear'].to(device)
-            masks = batch['valid_mask_filled'].to(device)
+            # Move input data to the same device as the model
+            inputs = batch['rgb_norm'].to(device)  # Move input to the device
+            targets = batch['depth_filled_linear'].to(device)  # Move target to the device
+            masks = torch.ones_like(targets).to(device)  # Move mask to the device
+            
             optimizer.zero_grad()
             outputs = model(inputs)
             loss = criterion(outputs, targets, masks)
             loss.backward()
             optimizer.step()
+            scheduler.step()
+
             running_loss += loss.item()
-            if i % args.logging_steps == 0:
-                logging.info(f"Iter: [{i:6d}], Epoch [{epoch+1}], Loss: {loss.item():.4f}")
+            current_iter += 1
+            
+            if current_iter % args.logging_steps == 0:
+                logging.info(f"Iter: [{current_iter:6d}/{args.iterations:6d}], Loss: {loss.item():.4f}")
 
-        avg_loss = running_loss / len(dataloader)
-        logging.info(f".   Epoch [{epoch+1}/{args.epochs}], Loss: {avg_loss:.4f}")
-
-        # Checkpoint saving logic: every 10 epochs or last epoch
-        is_last = (epoch + 1 == args.epochs)
-        if ((epoch + 1) % 10 == 0) or is_last:
-            save_path = os.path.join(args.output_dir, f"checkpoint_epoch_{epoch+1}.pth")
+        # Checkpoint saving logic
+        is_last = (current_iter == args.iterations)
+        if (current_iter % 5000 == 0) or is_last:
+            save_path = os.path.join(args.output_dir, f"checkpoint_iter_{current_iter}.pth")
             torch.save({
-                'epoch': epoch,
+                'iter': current_iter,
                 'model_state_dict': model.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
-                'loss': avg_loss,
             }, save_path)
             logging.info(f"Saved checkpoint: {save_path}")
         
@@ -202,10 +211,7 @@ def train_model(args):
             'epoch': epoch,
             'model_state_dict': model.state_dict(),
             'optimizer_state_dict': optimizer.state_dict(),
-            'loss': avg_loss,
         }, checkpoint_path)
-
-        scheduler.step()
 
 
 if __name__ == '__main__':

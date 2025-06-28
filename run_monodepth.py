@@ -6,24 +6,28 @@ import torch
 import cv2
 import argparse
 import util.io
+import numpy as np
+from tqdm import tqdm
 
 from torchvision.transforms import Compose
 from dpt.models import DPTDepthModel
 from dpt.transforms import Resize, NormalizeImage, PrepareForNet
-# from util.misc import visualize_attention
+from dpt.models import DPTDepthModel
+from src.weatherkitti_dataset import WeatherKITTIDepthMixedDataset
+
+DATASET_DIR = 'data/kitti'
+BASE_SPLIT_PATH = 'data_split/kitti_depth/'
+TRAIN_FILE = 'eigen_train_files_with_gt.txt'
+TEST_FILE = 'eigen_test_files_with_gt.txt'
 
 
 def run(args):
     """Run MonoDepthNN to compute depth maps.
-    Args:
-        input_path (str): path to input folder
-        output_path (str): path to output folder
-        model_path (str): path to saved model
     """
     print("initialize")
     input_path = args.input_path
     output_path = args.output_path
-    model_path = args.model_path
+    model_path = args.model_weights
     model_type = args.model_type
     optimize = args.optimize
     # select device
@@ -110,33 +114,26 @@ def run(args):
     model.to(device)
 
     # get input
-    img_names = glob.glob(os.path.join(input_path, "*"))
-    num_images = len(img_names)
+    dataset = WeatherKITTIDepthMixedDataset(
+        mode='EVAL',
+        train_crop=None,
+        squeeze_channel=True,
+        filename_ls_path=os.path.join(BASE_SPLIT_PATH, TEST_FILE),
+        dataset_dir=DATASET_DIR,
+        disp_name='Weather KITTI DPT',
+    )
 
     # create output folder
     os.makedirs(output_path, exist_ok=True)
 
     print("start processing")
-    for ind, img_name in enumerate(img_names):
-        if os.path.isdir(img_name):
-            continue
+    
+    for ind, sample_data in enumerate(tqdm(dataset, desc="Processing images")):
+        img_input = sample_data['rgb_norm']
+        rel_path = sample_data['rgb_relative_path']
 
-        print("  processing {} ({}/{})".format(img_name, ind + 1, num_images))
-        # input
-        img = util.io.read_image(img_name)
-
-        if args.kitti_crop is True:
-            height, width, _ = img.shape
-            top = height - 352
-            left = (width - 1216) // 2
-            img = img[top : top + 352, left : left + 1216, :]
-
-        img_input = transform({"image": img})["image"]
-
-        # compute
         with torch.no_grad():
-            sample = torch.from_numpy(img_input).to(device).unsqueeze(0)
-
+            sample = img_input.to(device).unsqueeze(0)
             if optimize and device == torch.device("cuda"):
                 sample = sample.to(memory_format=torch.channels_last)
                 sample = sample.half()
@@ -145,33 +142,25 @@ def run(args):
             prediction = (
                 torch.nn.functional.interpolate(
                     prediction.unsqueeze(1),
-                    size=img.shape[:2],
+                    size=sample.shape[-2:],
                     mode="bicubic",
                     align_corners=False,
-                )
-                .squeeze()
-                .cpu()
-                .numpy()
-            )
-
-            if model_type == "dpt_hybrid_kitti":
-                prediction *= 256
-
-            if model_type == "dpt_hybrid_nyu":
-                prediction *= 1000.0
-
-        filename = os.path.join(
-            output_path, os.path.splitext(os.path.basename(img_name))[0]
-        )
-        util.io.write_depth(filename, prediction, bits=2, absolute_depth=args.absolute_depth)
-
-    print("finished")
+                ).squeeze().cpu().numpy())
+            
+            # Save prediction as npy file
+            npy_filename = rel_path.replace('.png', '.npy')
+            npy_path = os.path.join(output_path, npy_filename)
+            
+            # Create all necessary subdirectories
+            os.makedirs(os.path.dirname(npy_path), exist_ok=True)
+            
+            np.save(npy_path, prediction)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "-i", "--input_path", default="input", help="folder with input images"
+        "-i", "--input_path", default="data/kitti/rgb", help="folder with input images"
     )
     parser.add_argument(
         "-o",
@@ -180,13 +169,15 @@ if __name__ == "__main__":
         help="folder for output images",
     )
     parser.add_argument(
-        "-m", "--model_weights", default=None, help="path to model weights"
+        "-m", "--model_weights", 
+        default='weights/dpt_hybrid_kitti-cb926ef4.pt', 
+        help="path to model weights"
     )
     parser.add_argument(
         "-t",
         "--model_type",
-        default="dpt_hybrid",
-        help="model type [dpt_large|dpt_hybrid|midas_v21]",
+        default="dpt_hybrid_kitti",
+        help="model type [dpt_large|dpt_hybrid|dpt_hybrid_kitti]",
     )
     parser.add_argument("--kitti_crop", dest="kitti_crop", action="store_true")
     parser.add_argument("--absolute_depth", dest="absolute_depth", action="store_true")

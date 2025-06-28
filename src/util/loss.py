@@ -14,8 +14,8 @@ def compute_scale_and_shift(prediction, target, mask):
     b_1 = torch.sum(mask * target, (1, 2))
 
     # solution: x = A^-1 . b = [[a_11, -a_01], [-a_10, a_00]] / (a_00 * a_11 - a_01 * a_10) . b
-    x_0 = torch.zeros_like(b_0).to(prediction.device)
-    x_1 = torch.zeros_like(b_1).to(prediction.device)
+    x_0 = torch.zeros_like(b_0)
+    x_1 = torch.zeros_like(b_1)
 
     det = a_00 * a_11 - a_01 * a_01
     valid = det.nonzero()
