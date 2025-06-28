@@ -22,10 +22,10 @@ TEST_FILE = 'eigen_test_files_with_gt.txt'
 
 
 def run(args):
-    """Run MonoDepthNN to compute depth maps.
+    """
+        Run MonoDepthNN to compute depth maps.
     """
     print("initialize")
-    input_path = args.input_path
     output_path = args.output_path
     model_path = args.model_weights
     model_type = args.model_type
@@ -164,7 +164,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-o",
         "--output_path",
-        default="output_monodepth",
+        default="output/prediction",
         help="folder for output images",
     )
     parser.add_argument(
@@ -185,8 +185,8 @@ if __name__ == "__main__":
     parser.add_argument("--no-optimize", dest="optimize", action="store_false")
 
     parser.set_defaults(optimize=True)
-    parser.set_defaults(kitti_crop=False)
-    parser.set_defaults(absolute_depth=False)
+    # parser.set_defaults(kitti_crop=False)
+    # parser.set_defaults(absolute_depth=False)
 
     args = parser.parse_args()
     default_models = {

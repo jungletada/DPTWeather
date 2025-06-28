@@ -11,8 +11,9 @@ This repository contains code and models for our [paper](https://arxiv.org/abs/2
 1) Download the model weights and place them in the `weights` folder:
 
 Monodepth:
-- [dpt_hybrid-midas-501f0c75.pt](https://github.com/intel-isl/DPT/releases/download/1_0/dpt_hybrid-midas-501f0c75.pt), [Mirror](https://drive.google.com/file/d/1dgcJEYYw1F8qirXhZxgNK8dWWz_8gZBD/view?usp=sharing)
-- [dpt_large-midas-2f21e586.pt](https://github.com/intel-isl/DPT/releases/download/1_0/dpt_large-midas-2f21e586.pt), [Mirror](https://drive.google.com/file/d/1vnuhoMc6caF-buQQ4hK0CeiMk9SjwB-G/view?usp=sharing)
+* Download [dpt_hybrid_kitti-cb926ef4.pt](https://github.com/intel-isl/DPT/releases/download/1_0/dpt_hybrid_kitti-cb926ef4.pt) model and place it in the `/weights/` folder
+* Download [dpt_hybrid-midas-501f0c75.pt](https://github.com/intel-isl/DPT/releases/download/1_0/dpt_hybrid-midas-501f0c75.pt) model and place it in the `/weights/` folder
+
 
   
 2) Set up dependencies: 
@@ -21,20 +22,17 @@ Monodepth:
     pip install -r requirements.txt
     ```
 
-### Usage 
-
-**KITTI models:**
-
 -----------
-### Evaluation for KITTI
-* Download [dpt_hybrid_kitti-cb926ef4.pt](https://github.com/intel-isl/DPT/releases/download/1_0/dpt_hybrid_kitti-cb926ef4.pt) model and place it in the `/weights/` folder
---- 
-#### Inference
-* `python run_monodepth.py --model_type dpt_hybrid_kitti --kitti_crop --absolute_depth`
+### Evaluation for KITTI (Fully supervised)
 
+#### Inference
+
+	python infer.py
 
 #### Evaluation
-* `python eval_png.py --pred_path ./output_monodepth/ --gt_path ./input/gt/ --dataset kitti --min_depth_eval 1e-3 --max_depth_eval 80 --garg_crop --do_kb_crop`
+	python eval.py
+
+
 -----------
 ### Citation
 
