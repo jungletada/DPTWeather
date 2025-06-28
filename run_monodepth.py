@@ -109,7 +109,6 @@ def run(args):
 
     if optimize and device == torch.device("cuda"):
         model = model.to(memory_format=torch.channels_last)
-        model = model.half()
 
     model.to(device)
 
@@ -136,7 +135,7 @@ def run(args):
             sample = img_input.to(device).unsqueeze(0)
             if optimize and device == torch.device("cuda"):
                 sample = sample.to(memory_format=torch.channels_last)
-                sample = sample.half()
+                sample = sample
 
             prediction = model.forward(sample)
             prediction = (
@@ -154,7 +153,7 @@ def run(args):
             # Create all necessary subdirectories
             os.makedirs(os.path.dirname(npy_path), exist_ok=True)
             
-            np.save(npy_path, prediction)
+            np.save(npy_path, prediction.astype(np.float32))
 
 
 if __name__ == "__main__":
