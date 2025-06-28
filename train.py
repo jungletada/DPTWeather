@@ -14,7 +14,7 @@ from torch.utils.data import DataLoader
 import util.io
 from dpt.models import DPTDepthModel
 from src.util.loss import ScaleAndShiftInvariantLoss
-from src.weatherkitti_dataset import WeatherKITTIDepthMixedDataset
+from src.dataset.weatherkitti_dataset import WeatherKITTIDepthMixedDataset
 
 DATASET_DIR = 'data/kitti'
 BASE_SPLIT_PATH = 'data_split/kitti_depth/'

@@ -13,7 +13,7 @@ from torchvision.transforms import Compose
 from dpt.models import DPTDepthModel
 from dpt.transforms import Resize, NormalizeImage, PrepareForNet
 from dpt.models import DPTDepthModel
-from src.weatherkitti_dataset import WeatherKITTIDepthMixedDataset
+from src.dataset.weatherkitti_dataset import WeatherKITTIDepthMixedDataset
 
 DATASET_DIR = 'data/kitti'
 BASE_SPLIT_PATH = 'data_split/kitti_depth/'
