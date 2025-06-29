@@ -25,13 +25,25 @@ Monodepth:
 -----------
 ### Evaluation for KITTI (Fully supervised)
 
-#### Inference
+#### Inference 生成推理的深度图（Inverse），保存为npy文件
 
 	python infer.py
 
-#### Evaluation
-	python eval.py
+`--output_path`: 指定输出`.npy`深度图的路径，默认为`output/prediction`
 
+`--model_weights`: 指定模型权重的文件夹，默认采用`weights/dpt_hybrid_kitti-cb926ef4.pt`
+
+`--model_type`: 模型的类型，默认采用在kitti上微调的`dpt_hybrid_kitti`；  其他可选模型：`dpt_hybrid`, `dpt_large` （需要下载相应的权重）
+
+#### Evaluation 根据上面生成的深度图，进行评价
+	python eval.py
+`--prediction_dir`: 指定之前已经生成的`.npy`深度图的路径，默认为`output/prediction`
+
+`--dataset_config`: 数据集的配置文件，默认采用测试集`config/dataset_depth/data_kitti_eigen_test.yaml`
+
+`--base_data_dir`: 数据集的根目录，默认`data/kitti`
+
+`--output_dir`: 评价指标的输出目录，默认`output/eval_metric`
 
 -----------
 ### Citation

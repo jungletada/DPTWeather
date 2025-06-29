@@ -45,9 +45,9 @@ eval_metrics = [
 
 
 def get_args():
-     # -------------------- Arguments --------------------
+    # -------------------- Arguments --------------------
     parser = argparse.ArgumentParser(
-        description="Marigold : Monocular Depth Estimation : Metrics Evaluation"
+        description="DPT for Monocular Depth Estimation"
     )
     parser.add_argument(
         "--prediction_dir",
@@ -89,23 +89,64 @@ def get_args():
     return parser.parse_args()
 
 
-def save_heatmap(tensor, filename):
+def extract_group(filename):
     """
-        Save depth_pred_ts and depth_raw_ts as heatmap PNGs
+        Extract the group based on the filename
     """
-    if isinstance(tensor, torch.Tensor):
-        arr = tensor.cpu().numpy()
+    parts = filename.split('/')
+    if parts[0] == 'fog':
+        return parts[0] + parts[-2]  # eg., fog + 75m = fog75m
+    elif len(parts) >= 1:
+        return parts[0]
     else:
-        arr = tensor
-    plt.figure()
-    plt.axis('off')
-    plt.imshow(arr, cmap="Spectral")
-    plt.tight_layout(pad=0)
-    # Ensure the directory exists before saving
-    os.makedirs(os.path.dirname(filename), exist_ok=True)
-    plt.savefig(filename, bbox_inches='tight', pad_inches=0)
-    plt.close()
+        return 'unknown'
 
+
+def save_filled_depth(args, valid_mask, depth_raw, pred_name):
+    """
+        Save_filled_depth
+    """
+    valid_mask_1 = valid_mask.squeeze()
+    depth_raw_1 = depth_raw.squeeze()
+    # Create aligned_depth subdirectory and save aligned depth maps there
+    aligned_depth_dir = os.path.join(args.output_dir, "align_depth_rgb")
+    aligned_pred_path = os.path.join(aligned_depth_dir, pred_name)
+    # Ensure the full directory structure exists
+    os.makedirs(os.path.dirname(aligned_pred_path), exist_ok=True)
+    aligned_depth = valid_mask_1 * depth_raw_1 + (1 - valid_mask_1) * depth_pred
+    aligned_depth_png_path = aligned_pred_path.replace('.npy', '.png').replace('pred_', '')
+    os.makedirs(os.path.dirname(aligned_depth_png_path), exist_ok=True)
+    Image.fromarray((aligned_depth * 256.0).astype(np.uint16)).save(aligned_depth_png_path)
+    
+
+def save_prediction_heatmap(args, depth_pred, depth_raw, pred_name):
+    """
+        Save predicted and ground truth depth as heatmaps
+    """
+    def save_heatmap(tensor, filename):
+        """
+            Save depth_pred_ts and depth_raw_ts as heatmap PNGs
+        """
+        if isinstance(tensor, torch.Tensor):
+            arr = tensor.cpu().numpy()
+        else:
+            arr = tensor
+        plt.figure()
+        plt.axis('off')
+        plt.imshow(arr, cmap="Spectral")
+        plt.tight_layout(pad=0)
+        # Ensure the directory exists before saving
+        os.makedirs(os.path.dirname(filename), exist_ok=True)
+        plt.savefig(filename, bbox_inches='tight', pad_inches=0)
+        plt.close()
+
+    pred_heatmap_path = os.path.join(args.output_dir, pred_name.replace('.npy', '_pred.png'))
+    gt_heatmap_path = os.path.join(args.output_dir, pred_name.replace('.npy', '_gt.png'))
+    save_heatmap(depth_pred, 
+                 pred_heatmap_path)
+    save_heatmap(torch.from_numpy(depth_raw).to(device).squeeze(), 
+                 gt_heatmap_path)
+    
 
 if "__main__" == __name__:
     logging.basicConfig(level=logging.INFO)
@@ -206,24 +247,9 @@ if "__main__" == __name__:
         sample_metric = []
         depth_pred_ts = torch.from_numpy(depth_pred).to(device)
         
-       
-        # valid_mask_1 = valid_mask.squeeze()
-        # depth_raw_1 = depth_raw.squeeze()
-        # # Create aligned_depth subdirectory and save aligned depth maps there
-        # aligned_depth_dir = os.path.join(args.output_dir, "align_depth_rgb")
-        # aligned_pred_path = os.path.join(aligned_depth_dir, pred_name)
-        # # Ensure the full directory structure exists
-        # os.makedirs(os.path.dirname(aligned_pred_path), exist_ok=True)
-        # aligned_depth = valid_mask_1 * depth_raw_1 + (1 - valid_mask_1) * depth_pred
-        # aligned_depth_png_path = aligned_pred_path.replace('.npy', '.png').replace('pred_', '')
-        # os.makedirs(os.path.dirname(aligned_depth_png_path), exist_ok=True)
-        # Image.fromarray((aligned_depth * 256.0).astype(np.uint16)).save(aligned_depth_png_path)
+        # save_filled_depth(args, valid_mask, depth_raw, pred_name)
         
-        # # Save predicted and ground truth depth as heatmaps
-        # pred_heatmap_path = os.path.join(args.output_dir, pred_name.replace('.npy', '_pred.png'))
-        # gt_heatmap_path = os.path.join(args.output_dir, pred_name.replace('.npy', '_gt.png'))
-        # save_heatmap(depth_pred, pred_heatmap_path)
-        # save_heatmap(torch.from_numpy(depth_raw).to(device).squeeze(), gt_heatmap_path)
+        # save_prediction_heatmap(args, depth_pred, depth_raw, pred_name)
         
         for met_func in metric_funcs:
             _metric_name = met_func.__name__
@@ -258,9 +284,11 @@ if "__main__" == __name__:
     with open(_save_to, "w+") as f:
         f.write(eval_text)
         logging.info(f"Evaluation metrics saved to {_save_to}")
-        
+    
     result_df = pd.read_csv(per_sample_filename)
-    result_df['group'] = result_df['filename'].apply(lambda x: x.split('/')[0])
+    # Apply grouping function: extract_group
+    result_df['group'] = result_df['filename'].apply(extract_group)
+    # Get average
     grouped_avg = result_df.groupby('group').mean(numeric_only=True)
     per_group_filename = os.path.join(args.output_dir, "per_group_metrics.csv")
     grouped_avg.to_csv(per_group_filename, index='group')
